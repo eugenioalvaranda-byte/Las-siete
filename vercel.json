@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/noticias.js": {
+      "maxDuration": 60
+    }
+  }
+}
