@@ -63,8 +63,15 @@ export default async function handler(req, res) {
   try {
     const resultados = {};
 
-    // Las hacemos en secuencia (GNews free: 1 request/segundo)
+    // Pausa para respetar el límite de GNews free (1 request/segundo)
+    const esperar = (ms) => new Promise(r => setTimeout(r, ms));
+
+    // Las hacemos en secuencia con pausa entre cada una
+    let primera = true;
     for (const s of secciones) {
+      if (!primera) await esperar(1300); // 1.3s entre consultas
+      primera = false;
+
       let url = `https://gnews.io/api/v4/top-headlines?category=${s.category}&lang=${s.lang}&max=${s.max}&apikey=${GNEWS_API_KEY}`;
       if (s.country) url += `&country=${s.country}`;
 
