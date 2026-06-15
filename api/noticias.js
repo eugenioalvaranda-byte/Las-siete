@@ -1,14 +1,18 @@
-// api/noticias.js — Grok sin tools, prompt directo para noticias reales
+// api/noticias.js
+// Usa Claude con BÚSQUEDA WEB EN VIVO (server tool) para traer
+// noticias REALES de las últimas 24 horas. Una sola llamada.
+
 export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const XAI_API_KEY = process.env.XAI_API_KEY;
-  if (!XAI_API_KEY) {
-    return res.status(500).json({ error: 'Falta XAI_API_KEY en Vercel' });
+  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+  if (!ANTHROPIC_API_KEY) {
+    return res.status(500).json({ error: 'Falta ANTHROPIC_API_KEY en Vercel' });
   }
 
+  // ── Ventana 7am (ayer) → 7am (hoy), hora Ciudad de México ──
   const ahora = new Date();
   const fmt = (d) => d.toLocaleDateString('es-MX', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -19,66 +23,74 @@ export default async function handler(req, res) {
   ayer.setDate(ayer.getDate() - 1);
   const ayerStr = fmt(ayer);
 
-  const prompt = `Eres el editor en jefe de LAS SIETE, newsletter premium mexicano.
-Fecha de hoy: ${hoy}.
+  const prompt = `Eres el editor en jefe de LAS SIETE, un newsletter premium mexicano.
 
-Con base en tu conocimiento actualizado de noticias recientes, genera la edición de hoy.
+Hoy es ${hoy}, son aproximadamente las 7:00 am en Ciudad de México.
 
-Responde ÚNICAMENTE con este JSON exacto, sin texto antes ni después, sin markdown, sin explicaciones:
+BUSCA EN LA WEB las noticias más importantes ocurridas en las ÚLTIMAS 24 HORAS, es decir entre las 7:00 am del ${ayerStr} y las 7:00 am de ${hoy} (hora de México).
+
+Haz búsquedas para cada sección. Sugerencias de búsqueda:
+- "noticias México hoy" / "México últimas noticias"
+- "world news today" / "breaking news"
+- "tecnología noticias hoy" / "AI tech news today"
+- "resultados deportivos hoy" / "fútbol México resultados"
+
+Después de buscar, selecciona SOLO hechos reales y recientes (de las últimas 24 horas) que hayas encontrado en los resultados. Si una noticia es más vieja, NO la incluyas.
+
+Para cada noticia genera un "xQuery": 2-4 palabras clave en español para buscarla en X (Twitter).
+
+Cuando termines de buscar, responde ÚNICAMENTE con este JSON, sin texto antes ni después, sin markdown:
 
 {
+  "fecha_corte": "${hoy} 07:00 hrs",
   "portada": {
-    "titular": "Titular máximo 14 palabras con verbo activo",
-    "resumen": "Dos oraciones: hecho concreto + implicación para México. Máximo 40 palabras."
+    "titular": "La noticia de mayor impacto del día, máx 14 palabras con verbo activo",
+    "resumen": "Dos oraciones: hecho concreto + implicación para el lector mexicano.",
+    "xQuery": "palabras clave X"
   },
   "mexico": [
-    { "categoria": "POLÍTICA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con el dato más importante." },
-    { "categoria": "ECONOMÍA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con el dato más importante." },
-    { "categoria": "SEGURIDAD", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con el dato más importante." },
-    { "categoria": "SOCIEDAD", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con el dato más importante." },
-    { "categoria": "CULTURA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con el dato más importante." },
-    { "categoria": "INFRAESTRUCTURA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con el dato más importante." },
-    { "categoria": "RELACIÓN EE.UU.", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con el dato más importante." }
+    { "categoria": "CATEGORÍA", "titular": "Máx 12 palabras", "resumen": "Hecho concreto en una oración.", "xQuery": "palabras clave X" }
   ],
   "mundo": [
-    { "categoria": "GEOPOLÍTICA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con dato clave." },
-    { "categoria": "ESTADOS UNIDOS", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con dato clave." },
-    { "categoria": "EUROPA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con dato clave." },
-    { "categoria": "ASIA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con dato clave." },
-    { "categoria": "LATINOAMÉRICA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con dato clave." },
-    { "categoria": "ECONOMÍA GLOBAL", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con dato clave." },
-    { "categoria": "CONFLICTO", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con dato clave." }
+    { "categoria": "CATEGORÍA", "titular": "Máx 12 palabras", "resumen": "Hecho concreto en una oración.", "xQuery": "palabras clave X" }
   ],
   "tecnologia": [
-    { "categoria": "INTELIGENCIA ARTIFICIAL", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." },
-    { "categoria": "ESPACIO", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." },
-    { "categoria": "BIOMEDICINA", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." },
-    { "categoria": "HARDWARE", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." },
-    { "categoria": "CIBERSEGURIDAD", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." },
-    { "categoria": "ENERGÍA", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." },
-    { "categoria": "MÓVILES", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." },
-    { "categoria": "CIENCIA", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." }
+    { "categoria": "CATEGORÍA", "titular": "Máx 11 palabras", "resumen": "Hecho esencial en una oración.", "xQuery": "palabras clave X" }
+  ],
+  "deportes": [
+    { "categoria": "CATEGORÍA", "titular": "Máx 12 palabras", "resumen": "Resultado o hecho deportivo concreto.", "xQuery": "palabras clave X" }
   ]
-}`;
+}
+
+REGLAS:
+- mexico: exactamente 7 noticias
+- mundo: exactamente 7 noticias
+- tecnologia: exactamente 8 noticias
+- deportes: exactamente 3 noticias
+- SOLO noticias reales de las últimas 24 horas que encontraste en tus búsquedas
+- Titulares directos, sin sensacionalismo
+- Tu respuesta final debe ser SOLO el JSON`;
 
   try {
-    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${XAI_API_KEY}`
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'grok-3-latest',
-        messages: [
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8000,
+        // ── BÚSQUEDA WEB EN VIVO: el server tool de Anthropic ──
+        tools: [
           {
-            role: 'system',
-            content: 'Eres un editor de noticias experto en México y el mundo. Tienes conocimiento actualizado de los eventos más recientes. Respondes SIEMPRE con JSON puro válido, sin markdown, sin texto adicional.'
-          },
-          { role: 'user', content: prompt }
+            type: 'web_search_20250305',
+            name: 'web_search',
+            max_uses: 8
+          }
         ],
-        temperature: 0.3,
-        max_tokens: 4000
+        messages: [{ role: 'user', content: prompt }]
       })
     });
 
@@ -86,21 +98,28 @@ Responde ÚNICAMENTE con este JSON exacto, sin texto antes ni después, sin mark
 
     if (!response.ok) {
       return res.status(502).json({
-        error: `xAI error ${response.status}`,
+        error: `Anthropic error ${response.status}`,
         detail: bodyText.slice(0, 800)
       });
     }
 
     const data = JSON.parse(bodyText);
-    let raw = data.choices?.[0]?.message?.content || '';
+
+    // Con web search, content trae varios bloques (texto, tool_use,
+    // search results, texto final). Unimos SOLO los bloques de texto.
+    let raw = (data.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text || '')
+      .join('\n');
+
     raw = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
 
     const start = raw.indexOf('{');
     const end = raw.lastIndexOf('}');
     if (start === -1 || end === -1) {
-      return res.status(502).json({ 
-        error: 'Grok no devolvió JSON', 
-        muestra: raw.slice(0, 800) 
+      return res.status(502).json({
+        error: 'Claude no devolvió JSON',
+        muestra: raw.slice(0, 800)
       });
     }
 
@@ -108,19 +127,20 @@ Responde ÚNICAMENTE con este JSON exacto, sin texto antes ni después, sin mark
     try {
       edicion = JSON.parse(raw.slice(start, end + 1));
     } catch (e) {
-      return res.status(502).json({ 
-        error: 'JSON malformado', 
-        muestra: raw.slice(0, 800) 
+      return res.status(502).json({
+        error: 'JSON malformado',
+        muestra: raw.slice(0, 800)
       });
     }
 
-    if (!edicion.portada || !edicion.mexico || !edicion.mundo || !edicion.tecnologia) {
-      return res.status(502).json({ 
-        error: 'JSON incompleto', 
-        recibido: Object.keys(edicion) 
+    if (!edicion.portada || !edicion.mexico || !edicion.mundo) {
+      return res.status(502).json({
+        error: 'JSON incompleto',
+        recibido: Object.keys(edicion)
       });
     }
 
+    // Cache 30 min: evita re-buscar (y re-pagar) en cada visita
     res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
     return res.status(200).json(edicion);
 
