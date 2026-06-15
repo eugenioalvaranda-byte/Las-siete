@@ -195,6 +195,31 @@ tailwind.config = {
     .loading-overlay { display: none; }
     .x-link { display: none; }
   }
+
+  /* Item de noticia: foto + fuente + texto amigable + X */
+  .item {
+    display: flex; gap: 14px; padding: 16px 0;
+    border-bottom: 0.5px solid #c4c7c7;
+  }
+  .item:last-child { border-bottom: none; }
+  .item-img {
+    width: 104px; height: 78px; object-fit: cover;
+    flex-shrink: 0; background: #e5e2e1; border-radius: 2px;
+  }
+  .item-body { flex: 1; min-width: 0; }
+  .item-fuente {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #9298a4; display: block; margin-bottom: 5px;
+  }
+  .item-texto {
+    font-family: 'Newsreader', serif;
+    font-size: 15px; line-height: 1.45; color: #1c1b1b;
+  }
+  .item .x-link { margin-left: 0; margin-top: 6px; }
+  @media print {
+    .item-img { display: none; }
+  }
 </style>
 </head>
 <body class="font-body-md text-on-surface">
@@ -205,9 +230,9 @@ tailwind.config = {
   <div class="spinner"></div>
   <div class="loading-label" id="loading-msg">Iniciando…</div>
   <div class="loading-steps">
-    <div class="loading-step" id="step1">1 · Buscando noticias de las últimas 24 hrs</div>
-    <div class="loading-step" id="step2">2 · Seleccionando las más relevantes</div>
-    <div class="loading-step" id="step3">3 · Redactando la edición</div>
+    <div class="loading-step" id="step1">1 · Trayendo noticias de las últimas 24 hrs</div>
+    <div class="loading-step" id="step2">2 · Curando las que de verdad importan</div>
+    <div class="loading-step" id="step3">3 · Redactando en tono cercano</div>
   </div>
 </div>
 
@@ -326,129 +351,45 @@ async function generarEdicion(){
 
 // ─── RENDER PRINCIPAL ───
 function renderEdicion(d){
-  const portada = renderPortada(d.portada);
+  // Actualiza la fecha de corte si viene
+  if(d.fecha_corte){
+    const elFecha = document.getElementById('corte-fecha');
+    if(elFecha) elFecha.textContent = d.fecha_corte;
+  }
+
   const secMx    = renderSeccion('México', d.mexico, true);
   const secMundo = renderSeccion('Mundo', d.mundo, false);
-  const secTech  = renderTech(d.tecnologia);
-  const secDep   = renderDeportes(d.deportes);
+  const secTech  = renderSeccion('Tecnología & Ciencia', d.tecnologia, false);
+  const secDep   = renderSeccion('Deportes', d.deportes, false);
 
+  const todo = secMx + secMundo + secTech + secDep;
   document.getElementById('contenido').innerHTML =
-    portada + secMx + secMundo + secTech + secDep;
+    todo || '<div class="p-8 text-center font-body-md text-secondary text-[13px]">No hay noticias con peso suficiente en este corte. Vuelve más tarde.</div>';
 }
 
-// ─── PORTADA ───
-function renderPortada(p){
-  const xUrl = xSearchUrl(p.xQuery);
-  return `
-    <div class="portada-block">
-      <span class="portada-eyebrow">Historia principal · ${escAttr(p.xQuery ? '' : '')}</span>
-      <a href="${xUrl}" target="_blank" rel="noopener" class="noticia-link">
-        <div class="portada-titular">${esc(p.titular)}</div>
-      </a>
-      <p class="portada-resumen">${esc(p.resumen)}</p>
-      <div style="margin-top:10px;">
-        <a href="${xUrl}" target="_blank" rel="noopener" class="x-link">
-          <span class="x-icon">𝕏</span> Ver en X
-        </a>
-      </div>
-    </div>`;
-}
-
-// ─── SECCIÓN ESTÁNDAR (todo en lista, sin imágenes) ───
+// ─── SECCIÓN (formato único: foto + fuente + texto amigable + X) ───
 function renderSeccion(nombre, items, esFirst){
-  const borderTop = esFirst ? '' : 'border-t-2 border-black pt-2';
-  const total = items ? items.length : 0;
-  let html = `
-    <section class="px-4 py-4">
-      <div class="${borderTop} mb-5">
-        <span class="font-label-sm text-[13px] tracking-widest uppercase">— ${nombre} · ${total} noticias</span>
-      </div>
-      <div class="space-y-0">`;
-
-  (items || []).forEach((n, i) => {
-    const xUrl = xSearchUrl(n.xQuery);
-    html += `
-      <div class="flex gap-4 pb-4 hairline border-outline-variant">
-        <span class="font-headline-lg leading-none" style="font-size:26px;color:#e5e2e1;min-width:22px;padding-top:2px;">${String(i+1).padStart(2,'0')}</span>
-        <div class="flex-1 pt-0">
-          <span class="font-label-sm text-[9px] uppercase" style="letter-spacing:0.18em;color:#9298a4;">${esc(n.categoria)}</span>
-          <div style="display:flex;align-items:baseline;gap:0;flex-wrap:wrap;">
-            <a href="${xUrl}" target="_blank" rel="noopener" class="noticia-link" style="display:inline;">
-              <h4 class="font-headline-md leading-tight" style="font-size:14px;display:inline;">${esc(n.titular)}</h4>
-            </a>
-            <a href="${xUrl}" target="_blank" rel="noopener" class="x-link" title="Buscar en X: ${escAttr(n.xQuery)}">
-              <span class="x-icon">𝕏</span>
-            </a>
-          </div>
-          <p class="font-body-md text-secondary mt-1" style="font-size:12px;line-height:1.5;">${esc(n.resumen)}</p>
-        </div>
-      </div>`;
-  });
-
-  html += `</div></section>`;
-  return html;
-}
-
-// ─── TECNOLOGÍA (2 columnas, sin imágenes) ───
-function renderTech(items){
-  let html = `
-    <section class="px-4 py-4">
-      <div class="border-t-2 border-black pt-2 mb-5">
-        <span class="font-label-sm text-[13px] tracking-widest uppercase">— Tecnología &amp; Ciencia · 8 noticias</span>
-      </div>
-      <div class="grid grid-cols-2">`;
-
-  (items || []).forEach((n, i) => {
-    const isLastRow = i >= 6;
-    const isRight   = i % 2 === 1;
-    const borderB   = isLastRow ? '' : 'border-b border-[#c4c7c7]';
-    const borderR   = isRight   ? '' : 'border-r border-[#c4c7c7]';
-    const xUrl      = xSearchUrl(n.xQuery);
-    html += `
-      <div class="p-3 ${borderR} ${borderB}">
-        <span class="font-label-sm text-[9px] uppercase" style="color:#9298a4;letter-spacing:0.16em;">${esc(n.categoria)}</span>
-        <div style="display:flex;align-items:baseline;gap:0;flex-wrap:wrap;">
-          <a href="${xUrl}" target="_blank" rel="noopener" class="noticia-link" style="display:inline;">
-            <h4 class="font-headline-md leading-tight" style="font-size:13px;display:inline;">${esc(n.titular)}</h4>
-          </a>
-          <a href="${xUrl}" target="_blank" rel="noopener" class="x-link" title="Buscar en X: ${escAttr(n.xQuery)}">
-            <span class="x-icon">𝕏</span>
-          </a>
-        </div>
-        <p class="font-body-md text-secondary mt-1" style="font-size:11px;line-height:1.45;">${esc(n.resumen)}</p>
-      </div>`;
-  });
-
-  html += `</div></section>`;
-  return html;
-}
-
-// ─── DEPORTES ───
-function renderDeportes(items){
   if(!items || !items.length) return '';
+  const borderTop = esFirst ? '' : 'border-t-2 border-black pt-2';
   let html = `
     <section class="px-4 py-4">
-      <div class="border-t-2 border-black pt-2 mb-5">
-        <span class="font-label-sm text-[13px] tracking-widest uppercase">— Deportes · ${items.length} noticias</span>
+      <div class="${borderTop} mb-4">
+        <span class="font-label-sm text-[13px] tracking-widest uppercase">— ${nombre} · ${items.length} ${items.length === 1 ? 'nota' : 'notas'}</span>
       </div>
-      <div class="space-y-0">`;
+      <div>`;
 
-  items.forEach((n, i) => {
+  items.forEach(n => {
     const xUrl = xSearchUrl(n.xQuery);
+    const img = n.imagen
+      ? `<img src="${escAttr(n.imagen)}" class="item-img" alt="" loading="lazy" onerror="this.style.display='none'">`
+      : '';
     html += `
-      <div class="flex gap-4 pb-4 hairline border-outline-variant">
-        <span class="font-headline-lg leading-none" style="font-size:26px;color:#e5e2e1;min-width:22px;padding-top:2px;">${String(i+1).padStart(2,'0')}</span>
-        <div class="flex-1 pt-0">
-          <span class="font-label-sm text-[9px] uppercase" style="letter-spacing:0.18em;color:#9298a4;">${esc(n.categoria)}</span>
-          <div style="display:flex;align-items:baseline;gap:0;flex-wrap:wrap;">
-            <a href="${xUrl}" target="_blank" rel="noopener" class="noticia-link" style="display:inline;">
-              <h4 class="font-headline-md leading-tight" style="font-size:14px;display:inline;">${esc(n.titular)}</h4>
-            </a>
-            <a href="${xUrl}" target="_blank" rel="noopener" class="x-link" title="Buscar en X: ${escAttr(n.xQuery)}">
-              <span class="x-icon">𝕏</span>
-            </a>
-          </div>
-          <p class="font-body-md text-secondary mt-1" style="font-size:12px;line-height:1.5;">${esc(n.resumen)}</p>
+      <div class="item">
+        ${img}
+        <div class="item-body">
+          <span class="item-fuente">${esc(n.fuente)}</span>
+          <span class="item-texto">${esc(n.texto)}</span>
+          <a href="${xUrl}" target="_blank" rel="noopener" class="x-link" title="Buscar en X"><span class="x-icon">𝕏</span> Ver en X</a>
         </div>
       </div>`;
   });
