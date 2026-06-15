@@ -38,12 +38,13 @@ export default async function handler(req, res) {
     timeZone: 'America/Mexico_City'
   });
 
-  // Pedimos más candidatos de los que mostramos, para que Claude pueda CURAR
+  // Pedimos el máximo de candidatos para que Claude pueda CURAR bien
   const secciones = [
-    { clave: 'mexico',     category: 'nation',     country: 'mx', max: 10, tope: 8 },
-    { clave: 'mundo',      category: 'world',      country: null, max: 10, tope: 8 },
-    { clave: 'tecnologia', category: 'technology', country: null, max: 10, tope: 8 },
-    { clave: 'deportes',   category: 'sports',     country: 'mx', max: 10, tope: 6 }
+    { clave: 'mexico',     category: 'nation',     country: 'mx', max: 10, tope: 10 },
+    { clave: 'mundo',      category: 'world',      country: null, max: 10, tope: 10 },
+    { clave: 'finanzas',   category: 'business',   country: 'mx', max: 10, tope: 10 },
+    { clave: 'tecnologia', category: 'technology', country: null, max: 10, tope: 10 },
+    { clave: 'deportes',   category: 'sports',     country: 'mx', max: 10, tope: 10 }
   ];
 
   const esperar = (ms) => new Promise(r => setTimeout(r, ms));
@@ -70,8 +71,15 @@ export default async function handler(req, res) {
       }
 
       const json = JSON.parse(texto);
-      let arts = (json.articles || []).filter(a => a.publishedAt && new Date(a.publishedAt).getTime() >= hace24h);
-      if (arts.length < 3) arts = (json.articles || []); // si 24h deja muy poco, usa lo más reciente
+      const todos = json.articles || [];
+      const esReciente = (a) => a.publishedAt && new Date(a.publishedAt).getTime() >= hace24h;
+
+      // Priorizamos las de las últimas 24h; si faltan, completamos con las más recientes
+      let arts = todos.filter(esReciente);
+      if (arts.length < s.tope) {
+        const resto = todos.filter(a => !esReciente(a));
+        arts = arts.concat(resto);
+      }
       arts = arts.slice(0, s.tope);
 
       crudas[s.clave] = [];
@@ -101,14 +109,14 @@ export default async function handler(req, res) {
 
 Te paso las noticias crudas de hoy (con su id, sección, fuente, título y descripción). Tu trabajo:
 
-1. CURAR: deja SOLO las noticias con peso real e interés genuino. DESCARTA nota roja, amarillismo, inseguridad, violencia y muertes, salvo que sea un hecho nacional/mundial de altísima relevancia. NO rellenes espacio: si una noticia es irrelevante o trivial, no la incluyas.
+1. CURAR: conserva las noticias de interés general con peso real. DESCARTA nota roja, amarillismo, crímenes locales, violencia y muertes, SALVO que sea un hecho nacional o mundial de altísima relevancia. No descartes de más: noticias de política seria, economía, acuerdos, ciencia, empresas, cultura o deporte relevante SÍ entran. Solo evita lo morboso o trivial.
 
-2. REESCRIBIR: para cada noticia que conserves, escribe una explicación de 1 o 2 oraciones en español de México, en un tono AMIGABLE y conversacional, como si se lo platicaras a un amigo inteligente. Claro, cálido, directo al grano, sin tecnicismos ni sensacionalismo. No uses el título original; cuenta el hecho con tus palabras.
+2. REESCRIBIR: para cada noticia que conserves, escribe una explicación de 1 o 2 oraciones en español de México, en tono AMIGABLE y conversacional, como si se lo platicaras a un amigo inteligente. Claro, cálido, directo al grano, sin tecnicismos ni sensacionalismo. No uses el título original; cuenta el hecho con tus palabras.
 
 Devuelve ÚNICAMENTE este JSON, sin markdown ni texto extra:
 { "keep": [ { "id": 0, "texto": "tu explicación amigable" } ] }
 
-Conserva como máximo: México 6, Mundo 6, Tecnología 6, Deportes 5. Menos está bien si no todas pesan.
+Conserva hasta 7 por sección (México, Mundo, Finanzas, Tecnología) y hasta 5 en Deportes. Prioriza las más recientes y relevantes. Si una sección tiene varias buenas, incluye 6-7; no te quedes corto sin razón.
 
 NOTICIAS CRUDAS:
 ${JSON.stringify(candidatos)}`;
@@ -180,6 +188,7 @@ ${JSON.stringify(candidatos)}`;
       curada: usoClaude,
       mexico: construirSeccion('mexico'),
       mundo: construirSeccion('mundo'),
+      finanzas: construirSeccion('finanzas'),
       tecnologia: construirSeccion('tecnologia'),
       deportes: construirSeccion('deportes')
     };
