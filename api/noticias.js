@@ -27,15 +27,16 @@ export default async function handler(req, res) {
 
 Hoy es ${hoy}, son aproximadamente las 7:00 am en Ciudad de México.
 
-BUSCA EN LA WEB las noticias más importantes ocurridas en las ÚLTIMAS 24 HORAS, es decir entre las 7:00 am del ${ayerStr} y las 7:00 am de ${hoy} (hora de México).
+BUSCA EN LA WEB las noticias más importantes de las ÚLTIMAS 24 HORAS (entre las 7:00 am del ${ayerStr} y las 7:00 am de ${hoy}, hora de México).
 
-Haz búsquedas para cada sección. Sugerencias de búsqueda:
-- "noticias México hoy" / "México últimas noticias"
-- "world news today" / "breaking news"
-- "tecnología noticias hoy" / "AI tech news today"
-- "resultados deportivos hoy" / "fútbol México resultados"
+IMPORTANTE: haz pocas búsquedas pero amplias (máximo 5 en total) para no demorarte. Por ejemplo:
+1. "noticias México hoy ${hoy}"
+2. "breaking world news today"
+3. "tech AI news today"
+4. "resultados deportivos México hoy"
+Y una búsqueda extra solo si te falta cubrir alguna sección.
 
-Después de buscar, selecciona SOLO hechos reales y recientes (de las últimas 24 horas) que hayas encontrado en los resultados. Si una noticia es más vieja, NO la incluyas.
+Después de buscar, selecciona SOLO hechos reales de las últimas 24 horas que encontraste. Si una noticia es más vieja, NO la incluyas.
 
 Para cada noticia genera un "xQuery": 2-4 palabras clave en español para buscarla en X (Twitter).
 
@@ -87,7 +88,7 @@ REGLAS:
           {
             type: 'web_search_20250305',
             name: 'web_search',
-            max_uses: 8
+            max_uses: 5
           }
         ],
         messages: [{ role: 'user', content: prompt }]
