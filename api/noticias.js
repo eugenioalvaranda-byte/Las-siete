@@ -1,10 +1,10 @@
 // api/noticias.js
-// Trae noticias REALES de las últimas 24 horas usando GNews API.
-// Rápido, real, fechado, sin alucinaciones, sin límite de tokens.
+// 1) GNews trae noticias REALES de las últimas 24h (con fotos).
+// 2) Claude CURA (quita amarillismo, deja solo lo que pesa) y REESCRIBE
+//    en un tono amigable, como si tú se lo platicaras a un amigo.
 
-const STOPWORDS = new Set(['el','la','los','las','un','una','de','del','y','o','a','en','que','con','por','para','su','sus','se','al','lo','le','es','son','tras','ante','sobre','entre','the','of','to','in','on','for','and','a','an','is','are','with','at','by']);
+const STOPWORDS = new Set(['el','la','los','las','un','una','de','del','y','o','a','en','que','con','por','para','su','sus','se','al','lo','le','es','son','tras','ante','sobre','entre','the','of','to','in','on','for','and','an','is','are','with','at','by']);
 
-// Genera 3-4 palabras clave para buscar la noticia en X
 function xQueryDeTitular(titular) {
   if (!titular) return 'noticias hoy';
   return titular
@@ -15,23 +15,10 @@ function xQueryDeTitular(titular) {
     .join(' ') || 'noticias hoy';
 }
 
-function recortar(texto, max) {
-  if (!texto) return '';
-  texto = texto.trim();
-  return texto.length > max ? texto.slice(0, max - 1).trim() + '…' : texto;
-}
-
-// Convierte un artículo de GNews al formato del newsletter
-function mapear(articulo) {
-  return {
-    categoria: (articulo.source?.name || 'NOTICIA').toUpperCase(),
-    titular: recortar(articulo.title, 110),
-    resumen: recortar(articulo.description || articulo.content || '', 160),
-    xQuery: xQueryDeTitular(articulo.title),
-    imagen: articulo.image || null,
-    url: articulo.url || null,
-    fecha: articulo.publishedAt || null
-  };
+function recortar(t, max) {
+  if (!t) return '';
+  t = t.trim();
+  return t.length > max ? t.slice(0, max - 1).trim() + '…' : t;
 }
 
 export default async function handler(req, res) {
@@ -40,90 +27,163 @@ export default async function handler(req, res) {
   }
 
   const GNEWS_API_KEY = process.env.GNEWS_API_KEY;
+  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   if (!GNEWS_API_KEY) {
-    return res.status(500).json({ error: 'Falta GNEWS_API_KEY en Vercel. Consíguela gratis en gnews.io' });
+    return res.status(500).json({ error: 'Falta GNEWS_API_KEY en Vercel' });
   }
 
-  // Ventana de 24 horas: descartamos lo más viejo que esto
   const hace24h = Date.now() - 24 * 60 * 60 * 1000;
-
-  // Una consulta por sección. category + country + lang.
-  const secciones = [
-    { clave: 'mexico',     category: 'nation',     country: 'mx', lang: 'es', max: 10, tomar: 7 },
-    { clave: 'mundo',      category: 'world',      country: null, lang: 'es', max: 10, tomar: 7 },
-    { clave: 'tecnologia', category: 'technology', country: null, lang: 'es', max: 10, tomar: 8 },
-    { clave: 'deportes',   category: 'sports',     country: 'mx', lang: 'es', max: 10, tomar: 3 }
-  ];
-
   const fechaCorte = new Date().toLocaleDateString('es-MX', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     timeZone: 'America/Mexico_City'
   });
 
+  // Pedimos más candidatos de los que mostramos, para que Claude pueda CURAR
+  const secciones = [
+    { clave: 'mexico',     category: 'nation',     country: 'mx', max: 10, tope: 8 },
+    { clave: 'mundo',      category: 'world',      country: null, max: 10, tope: 8 },
+    { clave: 'tecnologia', category: 'technology', country: null, max: 10, tope: 8 },
+    { clave: 'deportes',   category: 'sports',     country: 'mx', max: 10, tope: 6 }
+  ];
+
+  const esperar = (ms) => new Promise(r => setTimeout(r, ms));
+
   try {
-    const resultados = {};
-
-    // Pausa para respetar el límite de GNews free (1 request/segundo)
-    const esperar = (ms) => new Promise(r => setTimeout(r, ms));
-
-    // Las hacemos en secuencia con pausa entre cada una
+    // ── PASO 1: GNews ──
+    const crudas = {};          // articulos crudos por seccion
+    const indice = {};          // id -> articulo original (para re-pegar foto/fuente)
+    const candidatos = [];      // lista plana para mandar a Claude
+    let id = 0;
     let primera = true;
+
     for (const s of secciones) {
-      if (!primera) await esperar(1300); // 1.3s entre consultas
+      if (!primera) await esperar(1300); // respeta 1 req/seg de GNews
       primera = false;
 
-      let url = `https://gnews.io/api/v4/top-headlines?category=${s.category}&lang=${s.lang}&max=${s.max}&apikey=${GNEWS_API_KEY}`;
+      let url = `https://gnews.io/api/v4/top-headlines?category=${s.category}&lang=es&max=${s.max}&apikey=${GNEWS_API_KEY}`;
       if (s.country) url += `&country=${s.country}`;
 
       const r = await fetch(url);
       const texto = await r.text();
-
       if (!r.ok) {
-        return res.status(502).json({
-          error: `GNews error ${r.status} en sección ${s.clave}`,
-          detail: texto.slice(0, 400)
-        });
+        return res.status(502).json({ error: `GNews error ${r.status} en ${s.clave}`, detail: texto.slice(0, 400) });
       }
 
       const json = JSON.parse(texto);
-      let articulos = (json.articles || [])
-        // Filtramos a las últimas 24 horas
-        .filter(a => {
-          if (!a.publishedAt) return false;
-          return new Date(a.publishedAt).getTime() >= hace24h;
+      let arts = (json.articles || []).filter(a => a.publishedAt && new Date(a.publishedAt).getTime() >= hace24h);
+      if (arts.length < 3) arts = (json.articles || []); // si 24h deja muy poco, usa lo más reciente
+      arts = arts.slice(0, s.tope);
+
+      crudas[s.clave] = [];
+      for (const a of arts) {
+        indice[id] = {
+          fuente: (a.source?.name || 'Noticia'),
+          imagen: a.image || null,
+          url: a.url || null,
+          xQuery: xQueryDeTitular(a.title)
+        };
+        candidatos.push({
+          id,
+          seccion: s.clave,
+          fuente: a.source?.name || 'Noticia',
+          titulo: recortar(a.title, 120),
+          desc: recortar(a.description || a.content || '', 180)
         });
-
-      // Si el filtro de 24h deja muy pocas, usamos las más recientes disponibles
-      if (articulos.length < 3) {
-        articulos = (json.articles || []);
+        crudas[s.clave].push(id);
+        id++;
       }
-
-      resultados[s.clave] = articulos.slice(0, s.tomar).map(mapear);
     }
 
-    // Portada: la primera noticia de México (la más relevante para el lector)
-    const fuentePortada = resultados.mexico[0] || resultados.mundo[0] || resultados.tecnologia[0];
-    const portada = fuentePortada ? {
-      titular: fuentePortada.titular,
-      resumen: fuentePortada.resumen,
-      xQuery: fuentePortada.xQuery,
-      imagen: fuentePortada.imagen
-    } : {
-      titular: 'Sin noticias disponibles en este momento',
-      resumen: 'No se pudieron recuperar noticias. Intenta de nuevo en unos minutos.',
-      xQuery: 'noticias hoy'
-    };
+    // ── PASO 2: Claude cura y reescribe (si hay key) ──
+    let textos = {}; // id -> texto reescrito
+    if (ANTHROPIC_API_KEY && candidatos.length) {
+      const promptCuracion = `Eres el editor de LAS SIETE, un newsletter mexicano con voz cálida y cercana.
+
+Te paso las noticias crudas de hoy (con su id, sección, fuente, título y descripción). Tu trabajo:
+
+1. CURAR: deja SOLO las noticias con peso real e interés genuino. DESCARTA nota roja, amarillismo, inseguridad, violencia y muertes, salvo que sea un hecho nacional/mundial de altísima relevancia. NO rellenes espacio: si una noticia es irrelevante o trivial, no la incluyas.
+
+2. REESCRIBIR: para cada noticia que conserves, escribe una explicación de 1 o 2 oraciones en español de México, en un tono AMIGABLE y conversacional, como si se lo platicaras a un amigo inteligente. Claro, cálido, directo al grano, sin tecnicismos ni sensacionalismo. No uses el título original; cuenta el hecho con tus palabras.
+
+Devuelve ÚNICAMENTE este JSON, sin markdown ni texto extra:
+{ "keep": [ { "id": 0, "texto": "tu explicación amigable" } ] }
+
+Conserva como máximo: México 6, Mundo 6, Tecnología 6, Deportes 5. Menos está bien si no todas pesan.
+
+NOTICIAS CRUDAS:
+${JSON.stringify(candidatos)}`;
+
+      try {
+        const cr = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 2500,
+            temperature: 0.4,
+            messages: [{ role: 'user', content: promptCuracion }]
+          })
+        });
+
+        if (cr.ok) {
+          const cd = await cr.json();
+          let raw = (cd.content || []).filter(b => b.type === 'text').map(b => b.text || '').join('');
+          raw = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const s0 = raw.indexOf('{'), e0 = raw.lastIndexOf('}');
+          if (s0 !== -1 && e0 !== -1) {
+            const parsed = JSON.parse(raw.slice(s0, e0 + 1));
+            (parsed.keep || []).forEach(k => {
+              if (typeof k.id === 'number' && k.texto) textos[k.id] = k.texto.trim();
+            });
+          }
+        }
+        // Si Claude falla, seguimos con las descripciones crudas (degradación elegante)
+      } catch (e) { /* fallback abajo */ }
+    }
+
+    const usoClaude = Object.keys(textos).length > 0;
+
+    // ── PASO 3: armar la edición ──
+    function construirSeccion(clave) {
+      const ids = crudas[clave] || [];
+      const items = [];
+      for (const i of ids) {
+        const orig = indice[i];
+        // Si Claude curó, solo incluimos los que conservó.
+        // Si Claude no corrió, incluimos todos con su descripción cruda.
+        let texto;
+        if (usoClaude) {
+          if (!(i in textos)) continue;     // Claude lo descartó
+          texto = textos[i];
+        } else {
+          const c = candidatos.find(x => x.id === i);
+          texto = c ? (c.desc || c.titulo) : '';
+        }
+        if (!texto) continue;
+        items.push({
+          fuente: orig.fuente,
+          texto,
+          xQuery: orig.xQuery,
+          imagen: orig.imagen,
+          url: orig.url
+        });
+      }
+      return items;
+    }
 
     const edicion = {
-      fecha_corte: `${fechaCorte} 07:00 hrs`,
-      portada,
-      mexico: resultados.mexico,
-      mundo: resultados.mundo,
-      tecnologia: resultados.tecnologia,
-      deportes: resultados.deportes
+      fecha_corte: `${fechaCorte} · corte 07:00 hrs`,
+      curada: usoClaude,
+      mexico: construirSeccion('mexico'),
+      mundo: construirSeccion('mundo'),
+      tecnologia: construirSeccion('tecnologia'),
+      deportes: construirSeccion('deportes')
     };
 
-    // Cache 30 min: no re-consultar en cada visita (cuida tu cuota gratis)
     res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
     return res.status(200).json(edicion);
 
