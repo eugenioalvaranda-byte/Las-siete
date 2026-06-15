@@ -1,147 +1,122 @@
 // api/noticias.js
-// Usa Claude con BÚSQUEDA WEB EN VIVO (server tool) para traer
-// noticias REALES de las últimas 24 horas. Una sola llamada.
+// Trae noticias REALES de las últimas 24 horas usando GNews API.
+// Rápido, real, fechado, sin alucinaciones, sin límite de tokens.
+
+const STOPWORDS = new Set(['el','la','los','las','un','una','de','del','y','o','a','en','que','con','por','para','su','sus','se','al','lo','le','es','son','tras','ante','sobre','entre','the','of','to','in','on','for','and','a','an','is','are','with','at','by']);
+
+// Genera 3-4 palabras clave para buscar la noticia en X
+function xQueryDeTitular(titular) {
+  if (!titular) return 'noticias hoy';
+  return titular
+    .replace(/[^\wáéíóúñÁÉÍÓÚÑ\s]/gi, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !STOPWORDS.has(w.toLowerCase()))
+    .slice(0, 4)
+    .join(' ') || 'noticias hoy';
+}
+
+function recortar(texto, max) {
+  if (!texto) return '';
+  texto = texto.trim();
+  return texto.length > max ? texto.slice(0, max - 1).trim() + '…' : texto;
+}
+
+// Convierte un artículo de GNews al formato del newsletter
+function mapear(articulo) {
+  return {
+    categoria: (articulo.source?.name || 'NOTICIA').toUpperCase(),
+    titular: recortar(articulo.title, 110),
+    resumen: recortar(articulo.description || articulo.content || '', 160),
+    xQuery: xQueryDeTitular(articulo.title),
+    imagen: articulo.image || null,
+    url: articulo.url || null,
+    fecha: articulo.publishedAt || null
+  };
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-  if (!ANTHROPIC_API_KEY) {
-    return res.status(500).json({ error: 'Falta ANTHROPIC_API_KEY en Vercel' });
+  const GNEWS_API_KEY = process.env.GNEWS_API_KEY;
+  if (!GNEWS_API_KEY) {
+    return res.status(500).json({ error: 'Falta GNEWS_API_KEY en Vercel. Consíguela gratis en gnews.io' });
   }
 
-  // ── Ventana 7am (ayer) → 7am (hoy), hora Ciudad de México ──
-  const ahora = new Date();
-  const fmt = (d) => d.toLocaleDateString('es-MX', {
+  // Ventana de 24 horas: descartamos lo más viejo que esto
+  const hace24h = Date.now() - 24 * 60 * 60 * 1000;
+
+  // Una consulta por sección. category + country + lang.
+  const secciones = [
+    { clave: 'mexico',     category: 'nation',     country: 'mx', lang: 'es', max: 10, tomar: 7 },
+    { clave: 'mundo',      category: 'world',      country: null, lang: 'es', max: 10, tomar: 7 },
+    { clave: 'tecnologia', category: 'technology', country: null, lang: 'es', max: 10, tomar: 8 },
+    { clave: 'deportes',   category: 'sports',     country: 'mx', lang: 'es', max: 10, tomar: 3 }
+  ];
+
+  const fechaCorte = new Date().toLocaleDateString('es-MX', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     timeZone: 'America/Mexico_City'
   });
-  const hoy = fmt(ahora);
-  const ayer = new Date(ahora);
-  ayer.setDate(ayer.getDate() - 1);
-  const ayerStr = fmt(ayer);
-
-  const prompt = `Eres el editor en jefe de LAS SIETE, un newsletter premium mexicano.
-
-Hoy es ${hoy}, son aproximadamente las 7:00 am en Ciudad de México.
-
-BUSCA EN LA WEB las noticias más importantes de las ÚLTIMAS 24 HORAS (entre las 7:00 am del ${ayerStr} y las 7:00 am de ${hoy}, hora de México).
-
-IMPORTANTE: haz pocas búsquedas pero amplias (máximo 5 en total) para no demorarte. Por ejemplo:
-1. "noticias México hoy ${hoy}"
-2. "breaking world news today"
-3. "tech AI news today"
-4. "resultados deportivos México hoy"
-Y una búsqueda extra solo si te falta cubrir alguna sección.
-
-Después de buscar, selecciona SOLO hechos reales de las últimas 24 horas que encontraste. Si una noticia es más vieja, NO la incluyas.
-
-Para cada noticia genera un "xQuery": 2-4 palabras clave en español para buscarla en X (Twitter).
-
-Cuando termines de buscar, responde ÚNICAMENTE con este JSON, sin texto antes ni después, sin markdown:
-
-{
-  "fecha_corte": "${hoy} 07:00 hrs",
-  "portada": {
-    "titular": "La noticia de mayor impacto del día, máx 14 palabras con verbo activo",
-    "resumen": "Dos oraciones: hecho concreto + implicación para el lector mexicano.",
-    "xQuery": "palabras clave X"
-  },
-  "mexico": [
-    { "categoria": "CATEGORÍA", "titular": "Máx 12 palabras", "resumen": "Hecho concreto en una oración.", "xQuery": "palabras clave X" }
-  ],
-  "mundo": [
-    { "categoria": "CATEGORÍA", "titular": "Máx 12 palabras", "resumen": "Hecho concreto en una oración.", "xQuery": "palabras clave X" }
-  ],
-  "tecnologia": [
-    { "categoria": "CATEGORÍA", "titular": "Máx 11 palabras", "resumen": "Hecho esencial en una oración.", "xQuery": "palabras clave X" }
-  ],
-  "deportes": [
-    { "categoria": "CATEGORÍA", "titular": "Máx 12 palabras", "resumen": "Resultado o hecho deportivo concreto.", "xQuery": "palabras clave X" }
-  ]
-}
-
-REGLAS:
-- mexico: exactamente 7 noticias
-- mundo: exactamente 7 noticias
-- tecnologia: exactamente 8 noticias
-- deportes: exactamente 3 noticias
-- SOLO noticias reales de las últimas 24 horas que encontraste en tus búsquedas
-- Titulares directos, sin sensacionalismo
-- Tu respuesta final debe ser SOLO el JSON`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
-        // ── BÚSQUEDA WEB EN VIVO: el server tool de Anthropic ──
-        tools: [
-          {
-            type: 'web_search_20250305',
-            name: 'web_search',
-            max_uses: 5
-          }
-        ],
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
+    const resultados = {};
 
-    const bodyText = await response.text();
+    // Las hacemos en secuencia (GNews free: 1 request/segundo)
+    for (const s of secciones) {
+      let url = `https://gnews.io/api/v4/top-headlines?category=${s.category}&lang=${s.lang}&max=${s.max}&apikey=${GNEWS_API_KEY}`;
+      if (s.country) url += `&country=${s.country}`;
 
-    if (!response.ok) {
-      return res.status(502).json({
-        error: `Anthropic error ${response.status}`,
-        detail: bodyText.slice(0, 800)
-      });
+      const r = await fetch(url);
+      const texto = await r.text();
+
+      if (!r.ok) {
+        return res.status(502).json({
+          error: `GNews error ${r.status} en sección ${s.clave}`,
+          detail: texto.slice(0, 400)
+        });
+      }
+
+      const json = JSON.parse(texto);
+      let articulos = (json.articles || [])
+        // Filtramos a las últimas 24 horas
+        .filter(a => {
+          if (!a.publishedAt) return false;
+          return new Date(a.publishedAt).getTime() >= hace24h;
+        });
+
+      // Si el filtro de 24h deja muy pocas, usamos las más recientes disponibles
+      if (articulos.length < 3) {
+        articulos = (json.articles || []);
+      }
+
+      resultados[s.clave] = articulos.slice(0, s.tomar).map(mapear);
     }
 
-    const data = JSON.parse(bodyText);
+    // Portada: la primera noticia de México (la más relevante para el lector)
+    const fuentePortada = resultados.mexico[0] || resultados.mundo[0] || resultados.tecnologia[0];
+    const portada = fuentePortada ? {
+      titular: fuentePortada.titular,
+      resumen: fuentePortada.resumen,
+      xQuery: fuentePortada.xQuery,
+      imagen: fuentePortada.imagen
+    } : {
+      titular: 'Sin noticias disponibles en este momento',
+      resumen: 'No se pudieron recuperar noticias. Intenta de nuevo en unos minutos.',
+      xQuery: 'noticias hoy'
+    };
 
-    // Con web search, content trae varios bloques (texto, tool_use,
-    // search results, texto final). Unimos SOLO los bloques de texto.
-    let raw = (data.content || [])
-      .filter(b => b.type === 'text')
-      .map(b => b.text || '')
-      .join('\n');
+    const edicion = {
+      fecha_corte: `${fechaCorte} 07:00 hrs`,
+      portada,
+      mexico: resultados.mexico,
+      mundo: resultados.mundo,
+      tecnologia: resultados.tecnologia,
+      deportes: resultados.deportes
+    };
 
-    raw = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
-
-    const start = raw.indexOf('{');
-    const end = raw.lastIndexOf('}');
-    if (start === -1 || end === -1) {
-      return res.status(502).json({
-        error: 'Claude no devolvió JSON',
-        muestra: raw.slice(0, 800)
-      });
-    }
-
-    let edicion;
-    try {
-      edicion = JSON.parse(raw.slice(start, end + 1));
-    } catch (e) {
-      return res.status(502).json({
-        error: 'JSON malformado',
-        muestra: raw.slice(0, 800)
-      });
-    }
-
-    if (!edicion.portada || !edicion.mexico || !edicion.mundo) {
-      return res.status(502).json({
-        error: 'JSON incompleto',
-        recibido: Object.keys(edicion)
-      });
-    }
-
-    // Cache 30 min: evita re-buscar (y re-pagar) en cada visita
+    // Cache 30 min: no re-consultar en cada visita (cuida tu cuota gratis)
     res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
     return res.status(200).json(edicion);
 
