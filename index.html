@@ -85,7 +85,6 @@ tailwind.config = {
 <style>
   .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
   body { background-color: #f4f0ef; -webkit-font-smoothing: antialiased; }
-  .grayscale-img { filter: grayscale(100%) contrast(1.1); }
   .letter-spacing-wide { letter-spacing: 0.15em; }
   .hairline { border-bottom-width: 0.5px; }
 
@@ -99,7 +98,7 @@ tailwind.config = {
   .spinner {
     width: 32px; height: 32px;
     border: 2px solid #e5e2e1;
-    border-top-color: #C0392B;
+    border-top-color: #1c1b1b;
     border-radius: 50%;
     animation: spin .7s linear infinite;
   }
@@ -113,8 +112,17 @@ tailwind.config = {
     font-size: 9px; letter-spacing: 0.18em;
     text-transform: uppercase; color: #5e5e5e;
   }
+  .loading-steps {
+    display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 4px;
+  }
+  .loading-step {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.1em; color: #c4c7c7;
+    text-transform: uppercase; transition: color .3s;
+  }
+  .loading-step.active { color: #1c1b1b; }
 
-  /* Refresh button */
+  /* Toolbar */
   .refresh-btn {
     font-family: 'JetBrains Mono', monospace;
     font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
@@ -124,24 +132,68 @@ tailwind.config = {
   }
   .refresh-btn:hover { border-color: rgba(255,255,255,0.8); color: #fff; }
 
-  /* Corte badge */
+  /* Corte live badge */
   .corte-badge {
     display: inline-flex; align-items: center; gap: 4px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: #C0392B;
+    color: rgba(255,255,255,0.5);
   }
   .corte-dot {
-    width: 5px; height: 5px; border-radius: 50%; background: #C0392B;
-    animation: pulse 2s ease-in-out infinite;
+    width: 5px; height: 5px; border-radius: 50%; background: #fff;
+    opacity: 0.4; animation: pulse 2s ease-in-out infinite;
   }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
 
-  /* Print styles */
+  /* Noticia link — el titular es clickeable hacia X */
+  .noticia-link {
+    text-decoration: none; color: inherit; display: block;
+  }
+  .noticia-link:hover h3,
+  .noticia-link:hover h4 {
+    opacity: 0.6;
+    transition: opacity .15s;
+  }
+  /* Icono X sutil al final del titular */
+  .x-link {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #c4c7c7; text-decoration: none; margin-left: 6px;
+    vertical-align: middle; transition: color .15s;
+  }
+  .x-link:hover { color: #1c1b1b; }
+  .x-icon {
+    font-size: 9px; font-weight: 700; font-style: normal;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Portada featured */
+  .portada-block {
+    padding: 20px 24px 20px;
+    border-bottom: 1px solid #e5e2e1;
+  }
+  .portada-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: #5e5e5e; display: block; margin-bottom: 8px;
+  }
+  .portada-titular {
+    font-family: 'Newsreader', serif;
+    font-size: 22px; line-height: 1.25; letter-spacing: -0.01em;
+    color: #1c1b1b; margin-bottom: 8px;
+  }
+  .portada-resumen {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 300; line-height: 1.6; color: #5e5e5e;
+  }
+
+  /* Print */
   @media print {
     .no-print { display: none !important; }
     body { background: #fff; }
     .loading-overlay { display: none; }
+    .x-link { display: none; }
   }
 </style>
 </head>
@@ -151,12 +203,17 @@ tailwind.config = {
 <div class="loading-overlay" id="loading">
   <div class="loading-logo">Las Siete</div>
   <div class="spinner"></div>
-  <div class="loading-label" id="loading-msg">Compilando la edición de hoy…</div>
+  <div class="loading-label" id="loading-msg">Iniciando…</div>
+  <div class="loading-steps">
+    <div class="loading-step" id="step1">1 · Buscando noticias de las últimas 24 hrs</div>
+    <div class="loading-step" id="step2">2 · Seleccionando las más relevantes</div>
+    <div class="loading-step" id="step3">3 · Redactando la edición</div>
+  </div>
 </div>
 
-<!-- TOOLBAR (no se imprime) -->
+<!-- TOOLBAR -->
 <div class="no-print max-w-[600px] mx-auto bg-[#1c1b1b] px-4 py-2 flex justify-between items-center">
-  <div class="corte-badge"><span class="corte-dot"></span> Edición en vivo</div>
+  <div class="corte-badge"><span class="corte-dot"></span> Corte 07:00 hrs</div>
   <div class="flex gap-2">
     <button class="refresh-btn" onclick="generarEdicion()">↺ Actualizar</button>
     <button class="refresh-btn" onclick="window.print()">⎙ PDF</button>
@@ -166,13 +223,13 @@ tailwind.config = {
 <!-- NEWSLETTER -->
 <main class="max-w-[600px] mx-auto bg-surface min-h-screen" id="newsletter">
 
-  <!-- 1. TOP BAR -->
+  <!-- TOP BAR -->
   <header class="bg-primary text-on-primary flex justify-between items-center px-4 py-2 w-full">
     <span class="font-data-mono text-[9px] uppercase letter-spacing-wide">LAS SIETE · NEWSLETTER DIARIO</span>
     <span class="font-data-mono text-[9px] uppercase letter-spacing-wide" id="top-fecha">—</span>
   </header>
 
-  <!-- 2. MASTHEAD -->
+  <!-- MASTHEAD -->
   <section class="bg-surface px-6 py-6 border-b-2 border-primary flex justify-between items-baseline">
     <h1 class="font-display-italic italic text-[42px] leading-none tracking-tight">Las Siete</h1>
     <div class="font-data-mono text-[11px] text-secondary flex flex-col items-end gap-1">
@@ -181,7 +238,7 @@ tailwind.config = {
     </div>
   </section>
 
-  <!-- 3. TAGLINE -->
+  <!-- TAGLINE -->
   <section class="bg-[#F8F8F8] px-6 py-2 border-b border-[#e5e5e5]">
     <p class="font-display-italic italic text-[14px] text-secondary">Todo lo que importa, antes de las ocho.</p>
   </section>
@@ -189,7 +246,7 @@ tailwind.config = {
   <!-- CONTENIDO DINÁMICO -->
   <div id="contenido"></div>
 
-  <!-- 8. FOOTER -->
+  <!-- FOOTER -->
   <footer class="bg-primary text-on-primary p-6 mt-8">
     <div class="flex justify-between items-center mb-6">
       <span class="font-data-mono text-[10px] letter-spacing-wide">LAS SIETE · LASSIETE.MX</span>
@@ -213,9 +270,7 @@ tailwind.config = {
 <script>
 // ─── FECHA Y RELOJ ───
 const ahora = new Date();
-
 function pad(n){ return String(n).padStart(2,'0'); }
-
 function updateClock(){
   const n = new Date();
   document.getElementById('reloj').textContent = pad(n.getHours())+':'+pad(n.getMinutes());
@@ -223,9 +278,9 @@ function updateClock(){
 setInterval(updateClock, 1000);
 updateClock();
 
-const DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-const MESES_L = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const DIAS   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const MESES  = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MESES_L= ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 
 const diaS = DIAS[ahora.getDay()];
 const diaN = ahora.getDate();
@@ -234,23 +289,33 @@ const mesL = MESES_L[ahora.getMonth()];
 const anio = ahora.getFullYear();
 const edNum = Math.floor((ahora - new Date('2024-01-01')) / 86400000);
 
-document.getElementById('top-fecha').textContent = `EDICIÓN ${edNum} · ${diaS.toUpperCase()} ${diaN} ${mesS.toUpperCase()} ${anio}`;
+document.getElementById('top-fecha').textContent =
+  `EDICIÓN ${edNum} · ${diaS.toUpperCase()} ${diaN} ${mesS.toUpperCase()} ${anio}`;
 
-// ─── GENERAR EDICIÓN (una sola llamada a Grok con búsqueda en vivo) ───
+// ─── LOADING STEPS ───
+function setStep(n, msg){
+  document.getElementById('loading-msg').textContent = msg;
+  [1,2,3].forEach(i => {
+    document.getElementById(`step${i}`).classList.toggle('active', i <= n);
+  });
+}
+
+// ─── GENERAR EDICIÓN ───
 async function generarEdicion(){
   document.getElementById('loading').classList.remove('hidden');
-  setMsg('Buscando las noticias del día con Grok…');
+  setStep(1, 'Buscando noticias de las últimas 24 hrs…');
 
   try {
+    setStep(2, 'Verificando fuentes en la web…');
     const res = await fetch('/api/noticias', { method: 'POST' });
     const data = await res.json();
 
-    if (!res.ok) {
-      // El backend nos devuelve un objeto con detalles del error
-      const detalle = data.detail || data.muestra || JSON.stringify(data.recibido || data, null, 2);
-      throw new Error(`${data.error || 'Error desconocido'}\n\n${detalle || ''}`);
+    if(!res.ok){
+      const detalle = data.detail || data.muestra || JSON.stringify(data.recibido || '');
+      throw new Error(`${data.error || 'Error desconocido'}${detalle ? '\n\n' + detalle : ''}`);
     }
 
+    setStep(3, 'Redactando la edición…');
     renderEdicion(data);
   } catch(err) {
     renderError(err.message);
@@ -259,95 +324,98 @@ async function generarEdicion(){
   }
 }
 
-function setMsg(txt){ document.getElementById('loading-msg').textContent = txt; }
-
-// ─── RENDER ───
+// ─── RENDER PRINCIPAL ───
 function renderEdicion(d){
-  const hero = `
-    <article class="relative w-full overflow-hidden" style="background:#d0ccc4;min-height:220px;display:flex;align-items:flex-end;">
-      <div style="position:absolute;inset:0;background:linear-gradient(180deg,#c0bcb4 0%,#8a8680 100%);"></div>
-      <div style="position:relative;z-index:1;width:100%;background:rgba(253,248,248,0.95);padding:14px 24px;">
-        <span class="font-label-sm text-[9px] uppercase block mb-1" style="letter-spacing:0.2em;color:#5e5e5e;">HISTORIA PRINCIPAL</span>
-        <h2 class="font-headline-md leading-tight text-primary" style="font-size:20px;">${esc(d.portada.titular)}</h2>
-        <p class="font-body-md text-secondary mt-1" style="font-size:12px;line-height:1.5;">${esc(d.portada.resumen)}</p>
-      </div>
-    </article>`;
+  const portada = renderPortada(d.portada);
+  const secMx    = renderSeccion('México', d.mexico, true);
+  const secMundo = renderSeccion('Mundo', d.mundo, false);
+  const secTech  = renderTech(d.tecnologia);
+  const secDep   = renderDeportes(d.deportes);
 
-  const secMx = renderSeccion('México', 7, d.mexico, true);
-  const secMundo = renderSeccion('Mundo', 7, d.mundo, false);
-  const secTech = renderTech(d.tecnologia);
-
-  document.getElementById('contenido').innerHTML = hero + secMx + secMundo + secTech;
-
-  document.querySelectorAll('h2,h3,h4').forEach(h => {
-    h.addEventListener('mouseenter', () => { h.style.opacity='.7'; h.style.transition='opacity .2s'; });
-    h.addEventListener('mouseleave', () => { h.style.opacity='1'; });
-  });
+  document.getElementById('contenido').innerHTML =
+    portada + secMx + secMundo + secTech + secDep;
 }
 
-function renderSeccion(nombre, total, items, esFirst){
+// ─── PORTADA ───
+function renderPortada(p){
+  const xUrl = xSearchUrl(p.xQuery);
+  return `
+    <div class="portada-block">
+      <span class="portada-eyebrow">Historia principal · ${escAttr(p.xQuery ? '' : '')}</span>
+      <a href="${xUrl}" target="_blank" rel="noopener" class="noticia-link">
+        <div class="portada-titular">${esc(p.titular)}</div>
+      </a>
+      <p class="portada-resumen">${esc(p.resumen)}</p>
+      <div style="margin-top:10px;">
+        <a href="${xUrl}" target="_blank" rel="noopener" class="x-link">
+          <span class="x-icon">𝕏</span> Ver en X
+        </a>
+      </div>
+    </div>`;
+}
+
+// ─── SECCIÓN ESTÁNDAR (todo en lista, sin imágenes) ───
+function renderSeccion(nombre, items, esFirst){
   const borderTop = esFirst ? '' : 'border-t-2 border-black pt-2';
+  const total = items ? items.length : 0;
   let html = `
-    <section class="p-4">
-      <div class="${borderTop} mb-6">
+    <section class="px-4 py-4">
+      <div class="${borderTop} mb-5">
         <span class="font-label-sm text-[13px] tracking-widest uppercase">— ${nombre} · ${total} noticias</span>
-      </div>`;
+      </div>
+      <div class="space-y-0">`;
 
-  // Primeras 2 con "imagen"
-  html += `<div class="grid grid-cols-2 gap-4 mb-8">`;
-  const primeras = items.slice(0,2);
-  primeras.forEach((n,i) => {
-    const imgs = [
-      'linear-gradient(135deg,#ccc8c0,#a8a49c)',
-      'linear-gradient(135deg,#c4c0b8,#9c9890)'
-    ];
-    html += `
-      <div class="flex flex-col">
-        <div style="width:100%;height:120px;background:${imgs[i]};margin-bottom:12px;"></div>
-        <span class="font-label-sm text-[9px] uppercase mb-1" style="letter-spacing:0.2em;color:#5e5e5e;">${esc(n.categoria)}</span>
-        <h3 class="font-headline-md leading-snug mb-1" style="font-size:14px;">${esc(n.titular)}</h3>
-        <p class="font-body-md text-secondary leading-tight" style="font-size:12px;">${esc(n.resumen)}</p>
-      </div>`;
-  });
-  html += `</div>`;
-
-  // Resto en lista numerada
-  const resto = items.slice(2);
-  html += `<div class="space-y-4">`;
-  resto.forEach((n, i) => {
+  (items || []).forEach((n, i) => {
+    const xUrl = xSearchUrl(n.xQuery);
     html += `
       <div class="flex gap-4 pb-4 hairline border-outline-variant">
-        <span class="font-headline-lg leading-none pt-1" style="font-size:28px;color:#e5e2e1;min-width:24px;">${String(i+3).padStart(2,'0')}</span>
-        <div class="flex-1">
-          <span class="font-label-sm text-[10px] uppercase" style="color:#5e5e5e;">${esc(n.categoria)}</span>
-          <h4 class="font-headline-md leading-tight mb-1" style="font-size:14px;">${esc(n.titular)}</h4>
-          <p class="font-body-md text-secondary" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(n.resumen)}</p>
+        <span class="font-headline-lg leading-none" style="font-size:26px;color:#e5e2e1;min-width:22px;padding-top:2px;">${String(i+1).padStart(2,'0')}</span>
+        <div class="flex-1 pt-0">
+          <span class="font-label-sm text-[9px] uppercase" style="letter-spacing:0.18em;color:#9298a4;">${esc(n.categoria)}</span>
+          <div style="display:flex;align-items:baseline;gap:0;flex-wrap:wrap;">
+            <a href="${xUrl}" target="_blank" rel="noopener" class="noticia-link" style="display:inline;">
+              <h4 class="font-headline-md leading-tight" style="font-size:14px;display:inline;">${esc(n.titular)}</h4>
+            </a>
+            <a href="${xUrl}" target="_blank" rel="noopener" class="x-link" title="Buscar en X: ${escAttr(n.xQuery)}">
+              <span class="x-icon">𝕏</span>
+            </a>
+          </div>
+          <p class="font-body-md text-secondary mt-1" style="font-size:12px;line-height:1.5;">${esc(n.resumen)}</p>
         </div>
       </div>`;
   });
+
   html += `</div></section>`;
   return html;
 }
 
+// ─── TECNOLOGÍA (2 columnas, sin imágenes) ───
 function renderTech(items){
   let html = `
-    <section class="p-4">
-      <div class="border-t-2 border-black pt-2 mb-6">
+    <section class="px-4 py-4">
+      <div class="border-t-2 border-black pt-2 mb-5">
         <span class="font-label-sm text-[13px] tracking-widest uppercase">— Tecnología &amp; Ciencia · 8 noticias</span>
       </div>
       <div class="grid grid-cols-2">`;
 
-  items.forEach((n, i) => {
+  (items || []).forEach((n, i) => {
     const isLastRow = i >= 6;
-    const isRight = i % 2 === 1;
-    const borderB = isLastRow ? '' : 'border-b border-[#c4c7c7]';
-    const borderR = isRight ? '' : 'border-r border-[#c4c7c7]';
-    const catColor = 'color:#5e5e5e';
+    const isRight   = i % 2 === 1;
+    const borderB   = isLastRow ? '' : 'border-b border-[#c4c7c7]';
+    const borderR   = isRight   ? '' : 'border-r border-[#c4c7c7]';
+    const xUrl      = xSearchUrl(n.xQuery);
     html += `
       <div class="p-3 ${borderR} ${borderB}">
-        <span class="font-label-sm text-[10px] uppercase" style="${catColor};letter-spacing:0.18em;">${esc(n.categoria)}</span>
-        <h4 class="font-headline-md leading-tight mb-1" style="font-size:13px;">${esc(n.titular)}</h4>
-        <p class="font-body-md text-secondary" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(n.resumen)}</p>
+        <span class="font-label-sm text-[9px] uppercase" style="color:#9298a4;letter-spacing:0.16em;">${esc(n.categoria)}</span>
+        <div style="display:flex;align-items:baseline;gap:0;flex-wrap:wrap;">
+          <a href="${xUrl}" target="_blank" rel="noopener" class="noticia-link" style="display:inline;">
+            <h4 class="font-headline-md leading-tight" style="font-size:13px;display:inline;">${esc(n.titular)}</h4>
+          </a>
+          <a href="${xUrl}" target="_blank" rel="noopener" class="x-link" title="Buscar en X: ${escAttr(n.xQuery)}">
+            <span class="x-icon">𝕏</span>
+          </a>
+        </div>
+        <p class="font-body-md text-secondary mt-1" style="font-size:11px;line-height:1.45;">${esc(n.resumen)}</p>
       </div>`;
   });
 
@@ -355,15 +423,57 @@ function renderTech(items){
   return html;
 }
 
+// ─── DEPORTES ───
+function renderDeportes(items){
+  if(!items || !items.length) return '';
+  let html = `
+    <section class="px-4 py-4">
+      <div class="border-t-2 border-black pt-2 mb-5">
+        <span class="font-label-sm text-[13px] tracking-widest uppercase">— Deportes · ${items.length} noticias</span>
+      </div>
+      <div class="space-y-0">`;
+
+  items.forEach((n, i) => {
+    const xUrl = xSearchUrl(n.xQuery);
+    html += `
+      <div class="flex gap-4 pb-4 hairline border-outline-variant">
+        <span class="font-headline-lg leading-none" style="font-size:26px;color:#e5e2e1;min-width:22px;padding-top:2px;">${String(i+1).padStart(2,'0')}</span>
+        <div class="flex-1 pt-0">
+          <span class="font-label-sm text-[9px] uppercase" style="letter-spacing:0.18em;color:#9298a4;">${esc(n.categoria)}</span>
+          <div style="display:flex;align-items:baseline;gap:0;flex-wrap:wrap;">
+            <a href="${xUrl}" target="_blank" rel="noopener" class="noticia-link" style="display:inline;">
+              <h4 class="font-headline-md leading-tight" style="font-size:14px;display:inline;">${esc(n.titular)}</h4>
+            </a>
+            <a href="${xUrl}" target="_blank" rel="noopener" class="x-link" title="Buscar en X: ${escAttr(n.xQuery)}">
+              <span class="x-icon">𝕏</span>
+            </a>
+          </div>
+          <p class="font-body-md text-secondary mt-1" style="font-size:12px;line-height:1.5;">${esc(n.resumen)}</p>
+        </div>
+      </div>`;
+  });
+
+  html += `</div></section>`;
+  return html;
+}
+
+// ─── ERROR ───
 function renderError(msg){
   document.getElementById('contenido').innerHTML = `
     <div class="p-8 text-center">
       <p class="font-headline-md text-[18px] mb-2">Error al cargar la edición</p>
       <pre style="font-family:'JetBrains Mono',monospace;font-size:11px;text-align:left;white-space:pre-wrap;word-break:break-word;background:#f1edec;padding:12px;border:0.5px solid #c4c7c7;color:#444;max-width:520px;margin:0 auto 20px;">${esc(msg)}</pre>
-      <button onclick="generarEdicion()" class="font-data-mono text-[10px] uppercase" style="letter-spacing:0.16em;padding:10px 24px;background:#111;color:#fff;border:none;cursor:pointer;">
+      <button onclick="generarEdicion()" class="font-data-mono text-[10px] uppercase"
+        style="letter-spacing:0.16em;padding:10px 24px;background:#111;color:#fff;border:none;cursor:pointer;">
         Reintentar
       </button>
     </div>`;
+}
+
+// ─── UTILIDADES ───
+function xSearchUrl(query){
+  if(!query) return 'https://x.com/search?q=noticias+hoy&f=live';
+  return 'https://x.com/search?q=' + encodeURIComponent(query) + '&f=live&lang=es';
 }
 
 function esc(str){
@@ -373,6 +483,11 @@ function esc(str){
     .replace(/</g,'&lt;')
     .replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;');
+}
+
+function escAttr(str){
+  if(!str) return '';
+  return String(str).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 // ─── INIT ───
