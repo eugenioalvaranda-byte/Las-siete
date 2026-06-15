@@ -1,4 +1,4 @@
-// api/noticias.js — Grok con Agent Tools API (live search actualizado)
+// api/noticias.js — Grok sin tools, prompt directo para noticias reales
 export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -20,17 +20,11 @@ export default async function handler(req, res) {
   const ayerStr = fmt(ayer);
 
   const prompt = `Eres el editor en jefe de LAS SIETE, newsletter premium mexicano.
+Fecha de hoy: ${hoy}.
 
-Busca en internet las noticias MÁS IMPORTANTES publicadas entre el ${ayerStr} y el ${hoy}.
+Con base en tu conocimiento actualizado de noticias recientes, genera la edición de hoy.
 
-Necesito exactamente:
-- 7 noticias de MÉXICO
-- 7 noticias del MUNDO  
-- 8 noticias de TECNOLOGÍA Y CIENCIA
-
-La PORTADA es la noticia de mayor impacto para México.
-
-Responde ÚNICAMENTE con este JSON, sin texto antes ni después, sin markdown:
+Responde ÚNICAMENTE con este JSON exacto, sin texto antes ni después, sin markdown, sin explicaciones:
 
 {
   "portada": {
@@ -38,20 +32,36 @@ Responde ÚNICAMENTE con este JSON, sin texto antes ni después, sin markdown:
     "resumen": "Dos oraciones: hecho concreto + implicación para México. Máximo 40 palabras."
   },
   "mexico": [
-    { "categoria": "CATEGORÍA EN MAYÚSCULAS", "titular": "Máximo 12 palabras", "resumen": "Una oración con el dato más importante." }
+    { "categoria": "POLÍTICA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con el dato más importante." },
+    { "categoria": "ECONOMÍA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con el dato más importante." },
+    { "categoria": "SEGURIDAD", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con el dato más importante." },
+    { "categoria": "SOCIEDAD", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con el dato más importante." },
+    { "categoria": "CULTURA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con el dato más importante." },
+    { "categoria": "INFRAESTRUCTURA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con el dato más importante." },
+    { "categoria": "RELACIÓN EE.UU.", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con el dato más importante." }
   ],
   "mundo": [
-    { "categoria": "CATEGORÍA EN MAYÚSCULAS", "titular": "Máximo 12 palabras", "resumen": "Una oración con dato clave." }
+    { "categoria": "GEOPOLÍTICA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con dato clave." },
+    { "categoria": "ESTADOS UNIDOS", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con dato clave." },
+    { "categoria": "EUROPA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con dato clave." },
+    { "categoria": "ASIA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con dato clave." },
+    { "categoria": "LATINOAMÉRICA", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con dato clave." },
+    { "categoria": "ECONOMÍA GLOBAL", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con dato clave." },
+    { "categoria": "CONFLICTO", "titular": "Titular máximo 12 palabras", "resumen": "Una oración con dato clave." }
   ],
   "tecnologia": [
-    { "categoria": "CATEGORÍA EN MAYÚSCULAS", "titular": "Máximo 11 palabras", "resumen": "Una oración esencial." }
+    { "categoria": "INTELIGENCIA ARTIFICIAL", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." },
+    { "categoria": "ESPACIO", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." },
+    { "categoria": "BIOMEDICINA", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." },
+    { "categoria": "HARDWARE", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." },
+    { "categoria": "CIBERSEGURIDAD", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." },
+    { "categoria": "ENERGÍA", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." },
+    { "categoria": "MÓVILES", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." },
+    { "categoria": "CIENCIA", "titular": "Titular máximo 11 palabras", "resumen": "Una oración esencial." }
   ]
-}
-
-REGLAS: mexico=7 items, mundo=7 items, tecnologia=8 items. Solo noticias reales. Solo JSON puro.`;
+}`;
 
   try {
-    // Nuevo endpoint con Agent Tools (web_search)
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -60,31 +70,14 @@ REGLAS: mexico=7 items, mundo=7 items, tecnologia=8 items. Solo noticias reales.
       },
       body: JSON.stringify({
         model: 'grok-3-latest',
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'web_search',
-              description: 'Search the web for current news and information',
-              parameters: {
-                type: 'object',
-                properties: {
-                  query: { type: 'string', description: 'Search query' }
-                },
-                required: ['query']
-              }
-            }
-          }
-        ],
-        tool_choice: 'auto',
         messages: [
           {
             role: 'system',
-            content: 'Eres un editor de noticias experto. Usas web_search para buscar noticias reales y actuales. Respondes siempre en JSON puro válido, sin markdown.'
+            content: 'Eres un editor de noticias experto en México y el mundo. Tienes conocimiento actualizado de los eventos más recientes. Respondes SIEMPRE con JSON puro válido, sin markdown, sin texto adicional.'
           },
           { role: 'user', content: prompt }
         ],
-        temperature: 0.2,
+        temperature: 0.3,
         max_tokens: 4000
       })
     });
@@ -105,18 +98,27 @@ REGLAS: mexico=7 items, mundo=7 items, tecnologia=8 items. Solo noticias reales.
     const start = raw.indexOf('{');
     const end = raw.lastIndexOf('}');
     if (start === -1 || end === -1) {
-      return res.status(502).json({ error: 'Grok no devolvió JSON', muestra: raw.slice(0, 500) });
+      return res.status(502).json({ 
+        error: 'Grok no devolvió JSON', 
+        muestra: raw.slice(0, 800) 
+      });
     }
 
     let edicion;
     try {
       edicion = JSON.parse(raw.slice(start, end + 1));
     } catch (e) {
-      return res.status(502).json({ error: 'JSON malformado', muestra: raw.slice(0, 500) });
+      return res.status(502).json({ 
+        error: 'JSON malformado', 
+        muestra: raw.slice(0, 800) 
+      });
     }
 
     if (!edicion.portada || !edicion.mexico || !edicion.mundo || !edicion.tecnologia) {
-      return res.status(502).json({ error: 'JSON incompleto', recibido: Object.keys(edicion) });
+      return res.status(502).json({ 
+        error: 'JSON incompleto', 
+        recibido: Object.keys(edicion) 
+      });
     }
 
     res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
