@@ -359,10 +359,11 @@ function renderEdicion(d){
 
   const secMx    = renderSeccion('México', d.mexico, true);
   const secMundo = renderSeccion('Mundo', d.mundo, false);
+  const secFin   = renderSeccion('Finanzas', d.finanzas, false);
   const secTech  = renderSeccion('Tecnología & Ciencia', d.tecnologia, false);
   const secDep   = renderSeccion('Deportes', d.deportes, false);
 
-  const todo = secMx + secMundo + secTech + secDep;
+  const todo = secMx + secMundo + secFin + secTech + secDep;
   document.getElementById('contenido').innerHTML =
     todo || '<div class="p-8 text-center font-body-md text-secondary text-[13px]">No hay noticias con peso suficiente en este corte. Vuelve más tarde.</div>';
 }
