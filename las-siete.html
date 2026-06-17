@@ -1,0 +1,573 @@
+<!DOCTYPE html><html class="light" lang="es"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=JetBrains+Mono:wght@400;500&family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "on-primary": "#ffffff",
+        "surface-container-high": "#ebe7e6",
+        "on-secondary-fixed-variant": "#464747",
+        "on-secondary-container": "#646464",
+        "on-tertiary-container": "#e45342",
+        "on-primary-container": "#858383",
+        "surface-tint": "#5f5e5e",
+        "surface-container-highest": "#e5e2e1",
+        "tertiary": "#000000",
+        "on-error-container": "#93000a",
+        "tertiary-fixed": "#ffdad5",
+        "on-tertiary-fixed-variant": "#8e130c",
+        "on-secondary-fixed": "#1b1c1c",
+        "primary-fixed-dim": "#c8c6c5",
+        "primary-fixed": "#e5e2e1",
+        "inverse-primary": "#c8c6c5",
+        "surface-dim": "#ddd9d8",
+        "secondary-fixed-dim": "#c7c6c6",
+        "tertiary-fixed-dim": "#ffb4a9",
+        "on-error": "#ffffff",
+        "inverse-on-surface": "#f4f0ef",
+        "error": "#ba1a1a",
+        "on-surface": "#1c1b1b",
+        "secondary": "#5e5e5e",
+        "surface-variant": "#e5e2e1",
+        "on-tertiary": "#ffffff",
+        "background": "#fdf8f8",
+        "primary-container": "#1c1b1b",
+        "on-primary-fixed": "#1c1b1b",
+        "on-secondary": "#ffffff",
+        "primary": "#000000",
+        "surface": "#fdf8f8",
+        "error-container": "#ffdad6",
+        "secondary-fixed": "#e3e2e2",
+        "surface-container-low": "#f7f3f2",
+        "on-surface-variant": "#444748",
+        "surface-container": "#f1edec",
+        "inverse-surface": "#313030",
+        "on-primary-fixed-variant": "#474646",
+        "secondary-container": "#e3e2e2",
+        "outline": "#747878",
+        "on-tertiary-fixed": "#410000",
+        "surface-container-lowest": "#ffffff",
+        "outline-variant": "#c4c7c7",
+        "surface-bright": "#fdf8f8",
+        "tertiary-container": "#410000",
+        "on-background": "#1c1b1b",
+        "accent-red": "#C0392B"
+      },
+      borderRadius: { "DEFAULT": "0px", "lg": "0px", "xl": "0px", "full": "9999px" },
+      spacing: {
+        "gutter": "16px", "stack-md": "24px", "divider-hairline": "0.5px",
+        "stack-lg": "48px", "container-max-width": "600px", "divider-strong": "2px",
+        "stack-sm": "8px", "margin-page": "24px"
+      },
+      fontFamily: {
+        "body-md": ["Inter"], "headline-lg": ["Newsreader"], "label-sm": ["Inter"],
+        "data-mono": ["JetBrains Mono"], "display-italic": ["EB Garamond"],
+        "body-lg": ["Inter"], "headline-md": ["Newsreader"]
+      },
+      fontSize: {
+        "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "300"}],
+        "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "400"}],
+        "label-sm": ["12px", {"lineHeight": "1.4", "letterSpacing": "0.05em", "fontWeight": "500"}],
+        "data-mono": ["14px", {"lineHeight": "1.4", "fontWeight": "400"}],
+        "display-italic": ["48px", {"lineHeight": "1.1", "fontWeight": "400"}],
+        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "300"}],
+        "headline-md": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "400"}]
+      }
+    }
+  }
+}
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  body { background-color: #f4f0ef; -webkit-font-smoothing: antialiased; }
+  .letter-spacing-wide { letter-spacing: 0.15em; }
+  .hairline { border-bottom-width: 0.5px; }
+
+  /* Loading state */
+  .loading-overlay {
+    position: fixed; inset: 0; background: #fdf8f8;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; z-index: 50; gap: 16px;
+  }
+  .loading-overlay.hidden { display: none; }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 2px solid #e5e2e1;
+    border-top-color: #1c1b1b;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-logo {
+    font-family: 'EB Garamond', serif;
+    font-size: 36px; color: #1c1b1b; letter-spacing: -0.03em; font-style: italic;
+  }
+  .loading-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: #5e5e5e;
+  }
+  .loading-steps {
+    display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 4px;
+  }
+  .loading-step {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.1em; color: #c4c7c7;
+    text-transform: uppercase; transition: color .3s;
+  }
+  .loading-step.active { color: #1c1b1b; }
+
+  /* Toolbar */
+  .refresh-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+    background: none; border: 1px solid rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.6); padding: 5px 12px; cursor: pointer;
+    transition: all .15s;
+  }
+  .refresh-btn:hover { border-color: rgba(255,255,255,0.8); color: #fff; }
+
+  /* Corte live badge */
+  .corte-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+  }
+  .corte-dot {
+    width: 5px; height: 5px; border-radius: 50%; background: #fff;
+    opacity: 0.4; animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+
+  /* Noticia link — el titular es clickeable hacia X */
+  .noticia-link {
+    text-decoration: none; color: inherit; display: block;
+  }
+  .noticia-link:hover h3,
+  .noticia-link:hover h4 {
+    opacity: 0.6;
+    transition: opacity .15s;
+  }
+  /* Icono X sutil al final del titular */
+  .x-link {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #c4c7c7; text-decoration: none; margin-left: 6px;
+    vertical-align: middle; transition: color .15s;
+  }
+  .x-link:hover { color: #1c1b1b; }
+  .x-icon {
+    font-size: 9px; font-weight: 700; font-style: normal;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Portada featured */
+  .portada-block {
+    padding: 20px 24px 20px;
+    border-bottom: 1px solid #e5e2e1;
+  }
+  .portada-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: #5e5e5e; display: block; margin-bottom: 8px;
+  }
+  .portada-titular {
+    font-family: 'Newsreader', serif;
+    font-size: 22px; line-height: 1.25; letter-spacing: -0.01em;
+    color: #1c1b1b; margin-bottom: 8px;
+  }
+  .portada-resumen {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 300; line-height: 1.6; color: #5e5e5e;
+  }
+
+  /* Print */
+  @media print {
+    .no-print { display: none !important; }
+    body { background: #fff; }
+    .loading-overlay { display: none; }
+    .x-link { display: none; }
+  }
+</style>
+</head>
+<body class="font-body-md text-on-surface">
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loading">
+  <div class="loading-logo">Las Siete</div>
+  <div class="spinner"></div>
+  <div class="loading-label" id="loading-msg">Iniciando…</div>
+  <div class="loading-steps">
+    <div class="loading-step" id="step1">1 · Buscando noticias de las últimas 24 hrs</div>
+    <div class="loading-step" id="step2">2 · Seleccionando las más relevantes</div>
+    <div class="loading-step" id="step3">3 · Redactando la edición</div>
+  </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="no-print max-w-[600px] mx-auto bg-[#1c1b1b] px-4 py-2 flex justify-between items-center">
+  <div class="corte-badge"><span class="corte-dot"></span> Corte 07:00 hrs</div>
+  <div class="flex gap-2">
+    <button class="refresh-btn" onclick="generarEdicion()">↺ Actualizar</button>
+    <button class="refresh-btn" onclick="window.print()">⎙ PDF</button>
+  </div>
+</div>
+
+<!-- NEWSLETTER -->
+<main class="max-w-[600px] mx-auto bg-surface min-h-screen" id="newsletter">
+
+  <!-- TOP BAR -->
+  <header class="bg-primary text-on-primary flex justify-between items-center px-4 py-2 w-full">
+    <span class="font-data-mono text-[9px] uppercase letter-spacing-wide">LAS SIETE · NEWSLETTER DIARIO</span>
+    <span class="font-data-mono text-[9px] uppercase letter-spacing-wide" id="top-fecha">—</span>
+  </header>
+
+  <!-- MASTHEAD -->
+  <section class="bg-surface px-6 py-6 border-b-2 border-primary flex justify-between items-baseline">
+    <h1 class="font-display-italic italic text-[42px] leading-none tracking-tight">Las Siete</h1>
+    <div class="font-data-mono text-[11px] text-secondary flex flex-col items-end gap-1">
+      <span id="reloj" style="font-size:20px;font-weight:600;letter-spacing:-0.01em;color:#1c1b1b;">07:00</span>
+      <span>Corte · 07:00 hrs</span>
+    </div>
+  </section>
+
+  <!-- TAGLINE -->
+  <section class="bg-[#F8F8F8] px-6 py-2 border-b border-[#e5e5e5]">
+    <p class="font-display-italic italic text-[14px] text-secondary">Todo lo que importa, antes de las ocho.</p>
+  </section>
+
+  <!-- CONTENIDO DINÁMICO -->
+  <div id="contenido"></div>
+
+  <!-- FOOTER -->
+  <footer class="bg-primary text-on-primary p-6 mt-8">
+    <div class="flex justify-between items-center mb-6">
+      <span class="font-data-mono text-[10px] letter-spacing-wide">LAS SIETE · LASSIETE.MX</span>
+      <a class="font-data-mono text-[10px] letter-spacing-wide hover:opacity-70 transition-opacity" href="#">CANCELAR SUSCRIPCIÓN</a>
+    </div>
+    <div class="flex flex-col items-center space-y-3">
+      <div class="w-12 h-[1px] bg-on-primary opacity-30"></div>
+      <p class="font-data-mono text-[9px] text-center opacity-50 uppercase tracking-widest">
+        © 2026 LAS SIETE EDITORIAL. Todos los derechos reservados.
+      </p>
+      <div class="flex space-x-6">
+        <a class="font-data-mono text-[9px] uppercase opacity-50 hover:opacity-100 transition-opacity" href="#">Twitter</a>
+        <a class="font-data-mono text-[9px] uppercase opacity-50 hover:opacity-100 transition-opacity" href="#">Archivo</a>
+        <a class="font-data-mono text-[9px] uppercase opacity-50 hover:opacity-100 transition-opacity" href="#">Privacidad</a>
+      </div>
+    </div>
+  </footer>
+
+</main>
+
+<script>
+// ─── FECHA Y RELOJ ───
+const ahora = new Date();
+function pad(n){ return String(n).padStart(2,'0'); }
+function updateClock(){
+  const n = new Date();
+  document.getElementById('reloj').textContent = pad(n.getHours())+':'+pad(n.getMinutes());
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+const DIAS   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const MESES  = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MESES_L= ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+const diaS = DIAS[ahora.getDay()];
+const diaN = ahora.getDate();
+const mesS = MESES[ahora.getMonth()];
+const mesL = MESES_L[ahora.getMonth()];
+const anio = ahora.getFullYear();
+const edNum = Math.floor((ahora - new Date('2024-01-01')) / 86400000);
+
+document.getElementById('top-fecha').textContent =
+  `EDICIÓN ${edNum} · ${diaS.toUpperCase()} ${diaN} ${mesS.toUpperCase()} ${anio}`;
+
+// ─── LOADING STEPS ───
+function setStep(n, msg){
+  document.getElementById('loading-msg').textContent = msg;
+  [1,2,3].forEach(i => {
+    document.getElementById(`step${i}`).classList.toggle('active', i <= n);
+  });
+}
+
+// ─── GENERAR EDICIÓN ───
+async function generarEdicion(){
+  document.getElementById('loading').classList.remove('hidden');
+  setStep(1, 'Buscando noticias recientes…');
+
+  const fechaHoy = `${diaS} ${diaN} de ${mesL} de ${anio}`;
+
+  const prompt = `Eres el editor en jefe de LAS SIETE, newsletter de noticias premium mexicano.
+Fecha y hora actual: ${fechaHoy}, aproximadamente 07:00 hrs (Ciudad de México, UTC-6).
+
+CORTE DE LAS 7AM: incluye solo noticias de las últimas 24 horas que puedas fechar con certeza. Si no estás seguro de la fecha, NO la incluyas.
+
+ESTILO EDITORIAL OBLIGATORIO — Agencia de noticias, no columnista.
+
+SOLO HECHOS. CERO OPINIÓN. CERO NARRATIVA. CERO CHISME.
+
+LO QUE SÍ:
+- Resultados exactos: "Argentina 3-0 Argelia"
+- Números concretos: "el peso cae 1.2%", "tasa sube a 4.75%", "14 muertos"
+- Quién hizo qué: "Messi anotó hat-trick", "Fed mantiene tasas", "Sheinbaum firma decreto"
+- Consecuencia directa si la hay: "...lo pone a 4 goles del récord mundial"
+
+LO QUE NUNCA:
+- Nunca: "polémica", "controversia", "muchos consideraron", "generó expectativa"
+- Nunca: "se espera que", "analistas señalan", "podría ser"
+- Nunca adjetivos de juicio: "duro", "histórico", "impactante", "sorprendente"
+- Nunca opinión disfrazada de hecho
+
+FORMATO TITULAR — Sujeto + verbo + dato clave:
+  BIEN: "Argentina vence 3-0 a Argelia; Messi anota tres goles"
+  MAL:  "Messi protagoniza polémica en partido contra Argelia"
+
+FORMATO RESUMEN — Solo datos, sin adjetivos editoriales:
+  BIEN: "Goles: Messi 14', 67' y 89'. Argentina lidera Grupo D con 3 pts."
+  MAL:  "El partido generó expectativa mundial y Messi mostró su mejor nivel."
+
+REGLAS POR SECCIÓN:
+- Deportes: SIEMPRE incluye el marcador final. Es el dato más importante.
+- Economía: SIEMPRE incluye el número (%, cifra, precio).
+- Política: SIEMPRE incluye qué se decidió o qué acción concreta se tomó.
+
+Para cada noticia genera "xQuery": 2-4 palabras clave para buscar en X.
+
+Devuelve ÚNICAMENTE este JSON sin markdown ni texto extra:
+
+{
+  "fecha_corte": "${fechaHoy} 07:00 hrs",
+  "portada": {
+    "titular": "Sujeto + verbo + dato clave, máx 14 palabras",
+    "resumen": "Hecho concreto con números y nombres. Segunda oración solo si añade dato relevante.",
+    "xQuery": "palabras clave X"
+  },
+  "mexico": [
+    { "categoria": "CATEGORÍA", "titular": "Sujeto + verbo + dato", "resumen": "Solo hechos con cifras cuando existan.", "xQuery": "palabras clave X" }
+  ],
+  "mundo": [
+    { "categoria": "CATEGORÍA", "titular": "Sujeto + verbo + dato", "resumen": "Solo hechos con cifras cuando existan.", "xQuery": "palabras clave X" }
+  ],
+  "tecnologia": [
+    { "categoria": "CATEGORÍA", "titular": "Sujeto + verbo + dato", "resumen": "Solo hechos concretos.", "xQuery": "palabras clave X" }
+  ],
+  "deportes": [
+    { "categoria": "DEPORTE · COMPETENCIA", "titular": "Equipo A N-N Equipo B; dato más relevante", "resumen": "Marcador, goleadores con minutos, posición en tabla o contexto.", "xQuery": "palabras clave X" }
+  ]
+}
+
+Cantidades exactas:
+- mexico: 7 noticias (política, economía, seguridad, medio ambiente, sociedad, infraestructura, relación EE.UU.)
+- mundo: 7 noticias (geopolítica, EE.UU., Europa, Asia, Latam, economía global, conflicto)
+- tecnologia: 8 noticias (IA, espacio, biomedicina, hardware, ciberseguridad, energía, móviles, ciencia)
+- deportes: 4 noticias — prioridad a partidos con resultado del día
+
+Solo JSON puro. Sin texto antes ni después.`;
+
+  try {
+    setStep(2, 'Seleccionando las más relevantes…');
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    setStep(3, 'Redactando la edición…');
+    const data = await res.json();
+    let raw = data.content.map(b => b.text || '').join('');
+    raw = raw.replace(/```json|```/g,'').trim();
+    const s = raw.indexOf('{'), e = raw.lastIndexOf('}');
+    if(s === -1 || e === -1) throw new Error('JSON no encontrado');
+    const noticias = JSON.parse(raw.slice(s, e+1));
+    renderEdicion(noticias);
+  } catch(err) {
+    renderError(err.message);
+  } finally {
+    document.getElementById('loading').classList.add('hidden');
+  }
+}
+
+// ─── RENDER PRINCIPAL ───
+function renderEdicion(d){
+  const portada = renderPortada(d.portada);
+  const secMx    = renderSeccion('México', d.mexico, true);
+  const secMundo = renderSeccion('Mundo', d.mundo, false);
+  const secTech  = renderTech(d.tecnologia);
+  const secDep   = renderDeportes(d.deportes);
+
+  document.getElementById('contenido').innerHTML =
+    portada + secMx + secMundo + secTech + secDep;
+}
+
+// ─── PORTADA ───
+function renderPortada(p){
+  const xUrl = xSearchUrl(p.xQuery);
+  return `
+    <div class="portada-block">
+      <span class="portada-eyebrow">Historia principal · ${escAttr(p.xQuery ? '' : '')}</span>
+      <a href="${xUrl}" target="_blank" rel="noopener" class="noticia-link">
+        <div class="portada-titular">${esc(p.titular)}</div>
+      </a>
+      <p class="portada-resumen">${esc(p.resumen)}</p>
+      <div style="margin-top:10px;">
+        <a href="${xUrl}" target="_blank" rel="noopener" class="x-link">
+          <span class="x-icon">𝕏</span> Ver en X
+        </a>
+      </div>
+    </div>`;
+}
+
+// ─── SECCIÓN ESTÁNDAR (todo en lista, sin imágenes) ───
+function renderSeccion(nombre, items, esFirst){
+  const borderTop = esFirst ? '' : 'border-t-2 border-black pt-2';
+  const total = items ? items.length : 0;
+  let html = `
+    <section class="px-4 py-4">
+      <div class="${borderTop} mb-5">
+        <span class="font-label-sm text-[13px] tracking-widest uppercase">— ${nombre} · ${total} noticias</span>
+      </div>
+      <div class="space-y-0">`;
+
+  (items || []).forEach((n, i) => {
+    const xUrl = xSearchUrl(n.xQuery);
+    html += `
+      <div class="flex gap-4 pb-4 hairline border-outline-variant">
+        <span class="font-headline-lg leading-none" style="font-size:26px;color:#e5e2e1;min-width:22px;padding-top:2px;">${String(i+1).padStart(2,'0')}</span>
+        <div class="flex-1 pt-0">
+          <span class="font-label-sm text-[9px] uppercase" style="letter-spacing:0.18em;color:#9298a4;">${esc(n.categoria)}</span>
+          <div style="display:flex;align-items:baseline;gap:0;flex-wrap:wrap;">
+            <a href="${xUrl}" target="_blank" rel="noopener" class="noticia-link" style="display:inline;">
+              <h4 class="font-headline-md leading-tight" style="font-size:14px;display:inline;">${esc(n.titular)}</h4>
+            </a>
+            <a href="${xUrl}" target="_blank" rel="noopener" class="x-link" title="Buscar en X: ${escAttr(n.xQuery)}">
+              <span class="x-icon">𝕏</span>
+            </a>
+          </div>
+          <p class="font-body-md text-secondary mt-1" style="font-size:12px;line-height:1.5;">${esc(n.resumen)}</p>
+        </div>
+      </div>`;
+  });
+
+  html += `</div></section>`;
+  return html;
+}
+
+// ─── TECNOLOGÍA (2 columnas, sin imágenes) ───
+function renderTech(items){
+  let html = `
+    <section class="px-4 py-4">
+      <div class="border-t-2 border-black pt-2 mb-5">
+        <span class="font-label-sm text-[13px] tracking-widest uppercase">— Tecnología &amp; Ciencia · 8 noticias</span>
+      </div>
+      <div class="grid grid-cols-2">`;
+
+  (items || []).forEach((n, i) => {
+    const isLastRow = i >= 6;
+    const isRight   = i % 2 === 1;
+    const borderB   = isLastRow ? '' : 'border-b border-[#c4c7c7]';
+    const borderR   = isRight   ? '' : 'border-r border-[#c4c7c7]';
+    const xUrl      = xSearchUrl(n.xQuery);
+    html += `
+      <div class="p-3 ${borderR} ${borderB}">
+        <span class="font-label-sm text-[9px] uppercase" style="color:#9298a4;letter-spacing:0.16em;">${esc(n.categoria)}</span>
+        <div style="display:flex;align-items:baseline;gap:0;flex-wrap:wrap;">
+          <a href="${xUrl}" target="_blank" rel="noopener" class="noticia-link" style="display:inline;">
+            <h4 class="font-headline-md leading-tight" style="font-size:13px;display:inline;">${esc(n.titular)}</h4>
+          </a>
+          <a href="${xUrl}" target="_blank" rel="noopener" class="x-link" title="Buscar en X: ${escAttr(n.xQuery)}">
+            <span class="x-icon">𝕏</span>
+          </a>
+        </div>
+        <p class="font-body-md text-secondary mt-1" style="font-size:11px;line-height:1.45;">${esc(n.resumen)}</p>
+      </div>`;
+  });
+
+  html += `</div></section>`;
+  return html;
+}
+
+// ─── DEPORTES ───
+function renderDeportes(items){
+  if(!items || !items.length) return '';
+  let html = `
+    <section class="px-4 py-4">
+      <div class="border-t-2 border-black pt-2 mb-5">
+        <span class="font-label-sm text-[13px] tracking-widest uppercase">— Deportes · ${items.length} noticias</span>
+      </div>
+      <div class="space-y-0">`;
+
+  items.forEach((n, i) => {
+    const xUrl = xSearchUrl(n.xQuery);
+    html += `
+      <div class="flex gap-4 pb-4 hairline border-outline-variant">
+        <span class="font-headline-lg leading-none" style="font-size:26px;color:#e5e2e1;min-width:22px;padding-top:2px;">${String(i+1).padStart(2,'0')}</span>
+        <div class="flex-1 pt-0">
+          <span class="font-label-sm text-[9px] uppercase" style="letter-spacing:0.18em;color:#9298a4;">${esc(n.categoria)}</span>
+          <div style="display:flex;align-items:baseline;gap:0;flex-wrap:wrap;">
+            <a href="${xUrl}" target="_blank" rel="noopener" class="noticia-link" style="display:inline;">
+              <h4 class="font-headline-md leading-tight" style="font-size:14px;display:inline;">${esc(n.titular)}</h4>
+            </a>
+            <a href="${xUrl}" target="_blank" rel="noopener" class="x-link" title="Buscar en X: ${escAttr(n.xQuery)}">
+              <span class="x-icon">𝕏</span>
+            </a>
+          </div>
+          <p class="font-body-md text-secondary mt-1" style="font-size:12px;line-height:1.5;">${esc(n.resumen)}</p>
+        </div>
+      </div>`;
+  });
+
+  html += `</div></section>`;
+  return html;
+}
+
+// ─── ERROR ───
+function renderError(msg){
+  document.getElementById('contenido').innerHTML = `
+    <div class="p-8 text-center">
+      <p class="font-headline-md text-[18px] mb-2">Error al cargar la edición</p>
+      <p class="font-body-md text-secondary text-[13px] mb-6">${esc(msg)}</p>
+      <button onclick="generarEdicion()" class="font-data-mono text-[10px] uppercase"
+        style="letter-spacing:0.16em;padding:10px 24px;background:#111;color:#fff;border:none;cursor:pointer;">
+        Reintentar
+      </button>
+    </div>`;
+}
+
+// ─── UTILIDADES ───
+function xSearchUrl(query){
+  if(!query) return 'https://x.com/search?q=noticias+hoy&f=live';
+  return 'https://x.com/search?q=' + encodeURIComponent(query) + '&f=live&lang=es';
+}
+
+function esc(str){
+  if(!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function escAttr(str){
+  if(!str) return '';
+  return String(str).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ─── INIT ───
+generarEdicion();
+</script>
+</body></html>
